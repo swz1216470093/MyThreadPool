@@ -41,8 +41,7 @@ public class BlockingQueue<T> {
 
     /**
      * 阻塞获取
-     *
-     * @return 消费的元素
+     * @return
      */
     public T take() {
         T result = null;
@@ -67,7 +66,7 @@ public class BlockingQueue<T> {
     /**
      * 阻塞添加
      *
-     * @param element 生产的元素
+     * @param element
      */
     public void put(T element) {
         lock.lock();
@@ -131,6 +130,7 @@ public class BlockingQueue<T> {
                 long nanosTimeout = timeUnit.toNanos(timeout);
                 while (queue.size() == capacity){
                     if (nanosTimeout <= 0){
+                        log.debug("等待超时，加入任务失败{}",element);
                         return false;
                     }
                     log.debug("等待加入任务队列,{}",element);
@@ -157,6 +157,7 @@ public class BlockingQueue<T> {
         lock.lock();
         try {
             if (queue.size() == capacity){
+                log.debug("队列已满，执行拒绝策略:{},任务:{}",rejectPolicy,task);
                 rejectPolicy.reject(this,task);
             }else {
                 queue.addLast(task);

@@ -3,6 +3,7 @@ package org.example.mythreadpool;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -23,21 +24,21 @@ public class ThreadPool {
     /**
      * 核心线程数
      */
-    private int coreSize;
+    private final int coreSize;
 
     /**
      * 获取任务超时时间
      */
-    private long timeout;
+    private final long timeout;
     /**
      * 时间单位
      */
-    private TimeUnit timeUnit;
+    private final TimeUnit timeUnit;
 
     /**
      * 拒绝策略
      */
-    private final RejectPolicy rejectPolicy;
+    private final RejectPolicy<Runnable> rejectPolicy;
 
     public ThreadPool(int coreSize, long timeout, TimeUnit timeUnit,int queueCapacity,RejectPolicy<Runnable> rejectPolicy) {
         this.coreSize = coreSize;
@@ -66,10 +67,8 @@ public class ThreadPool {
 //            while (task != null || (task = blockingQueue.take()) != null){
             while (task != null || (task = blockingQueue.poll(timeout,timeUnit)) != null){
                 try {
-                    log.debug("正在执行{}",task);
+                    log.debug("正在执行{}", task);
                     task.run();
-                }catch (Exception e){
-                    e.printStackTrace();
                 }finally {
                     task = null;
                 }
@@ -80,6 +79,80 @@ public class ThreadPool {
             }
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Worker worker = (Worker) o;
+            return Objects.equals(task, worker.task);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(task);
+        }
+    }
+
+    /**
+     * 一直等待
+     */
+    public static class Wait implements RejectPolicy<Runnable>{
+        @Override
+        public void reject(BlockingQueue<Runnable> queue, Runnable task) {
+            queue.put(task);
+        }
+    }
+
+    /**
+     * 超时等待
+     */
+    public static class WaitTimeout implements RejectPolicy<Runnable> {
+        private final int timeout;
+        private final TimeUnit timeUnit;
+        public WaitTimeout(int timeout, TimeUnit timeUnit) {
+            this.timeout = timeout;
+            this.timeUnit = timeUnit;
+        }
+        @Override
+        public void reject(BlockingQueue<Runnable> queue, Runnable task) {
+            queue.offer(task,timeout,timeUnit);
+        }
+    }
+    /**
+     * 放弃任务
+     */
+    public static class Discard implements RejectPolicy<Runnable>{
+
+        @Override
+        public void reject(BlockingQueue<Runnable> queue, Runnable task) {
+//            什么也不做
+        }
+    }
+    /**
+     * 调用者自己执行
+     */
+    public static class CallerRun implements RejectPolicy<Runnable>{
+
+        @Override
+        public void reject(BlockingQueue<Runnable> queue, Runnable task) {
+            task.run();
+        }
+    }
+    /**
+     * 抛出异常
+     */
+    public static class Abort implements RejectPolicy<Runnable>{
+
+        @Override
+        public void reject(BlockingQueue<Runnable> queue, Runnable task) {
+            throw new RuntimeException("Task " + task.toString() +
+                    " rejected from " +
+                    this);
+        }
     }
     /**
      * 执行任务
@@ -95,18 +168,14 @@ public class ThreadPool {
             }else {
                 log.debug("核心线程数已满");
 //        如果任务数超过核心线程数，放入阻塞队列中暂存
-//                log.debug("放入任务队列暂存 {}",task);
-//                blockingQueue.put(task);
-//                死等
-//                带超时的等待
-//                放弃任务
-//                抛出异常
-//                让调用者自己执行
                 blockingQueue.tryPut(rejectPolicy,task);
 
             }
         }
     }
 
-
+    @Override
+    public String toString() {
+        return "ThreadPool{}";
+    }
 }
