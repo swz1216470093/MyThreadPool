@@ -26,12 +26,16 @@
                    log.debug("核心线程数已满");
    //        如果任务数超过核心线程数，放入阻塞队列中暂存
    //                log.debug("放入任务队列暂存 {}",task);
-   //                blockingQueue.put(task);
    //                等待
+   //                blockingQueue.put(task);
    //                带超时的等待
+   //                blockingQueue.offer(task,timeout,timeunit);
    //                放弃任务
+   //                什么也不做
    //                抛出异常
+   //                throw new RuntimeException();  
    //                让调用者自己执行
+   //                task.run();
                    blockingQueue.tryPut(rejectPolicy,task);
    
                }
